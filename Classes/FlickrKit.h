@@ -96,5 +96,7 @@
 
 - (FKImageUploadNetworkOperation *) uploadImage:(UIImage *)image args:(NSDictionary *)args completion:(FKAPIImageUploadCompletion)completion;
 
+- (FKImageUploadNetworkOperation *) uploadImageAtFileURL:(NSURL *)fileURL args:(NSDictionary *)args completion:(FKAPIImageUploadCompletion)completion;
+
 @end
 

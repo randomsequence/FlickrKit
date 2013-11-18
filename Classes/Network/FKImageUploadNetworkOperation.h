@@ -9,11 +9,14 @@
 #import "FKDUNetworkOperation.h"
 #import <UIKit/UIKit.h>
 #import "FKDataTypes.h"
+#import <MobileCoreServices/MobileCoreServices.h>
 
 @interface FKImageUploadNetworkOperation : FKDUNetworkOperation 
 
 @property (nonatomic, assign, readonly) CGFloat uploadProgress;
 
 - (id) initWithImage:(UIImage *)image arguments:(NSDictionary *)args completion:(FKAPIImageUploadCompletion)completion;
+
+- (id) initWithFileURL:(NSURL *)fileURL arguments:(NSDictionary *)args completion:(FKAPIImageUploadCompletion)completion;
 
 @end

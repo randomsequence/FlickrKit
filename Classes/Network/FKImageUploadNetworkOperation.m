@@ -15,6 +15,7 @@
 
 @interface FKImageUploadNetworkOperation ()
 @property (nonatomic, strong) UIImage *image;
+@property (nonatomic, strong) NSURL *fileURL;
 @property (nonatomic, retain) NSString *tempFile;
 @property (nonatomic, copy) FKAPIImageUploadCompletion completion;
 @property (nonatomic, retain) NSDictionary *args;
@@ -28,6 +29,17 @@
     self = [super init];
     if (self) {
 		self.image = image;
+		self.args = args;
+		self.completion = completion;
+    }
+    return self;
+}
+
+- (id) initWithFileURL:(NSURL *)fileURL arguments:(NSDictionary *)args completion:(FKAPIImageUploadCompletion)completion {
+    NSParameterAssert([fileURL isFileURL]);
+    self = [super init];
+    if (self) {
+		self.fileURL = fileURL;
 		self.args = args;
 		self.completion = completion;
     }
@@ -82,8 +94,29 @@
 	// Form multipart needs a boundary 
 	NSString *multipartBoundary = FKGenerateUUID();
 	
+    NSString *inFilename = nil;
+    
+	// Input stream is the image
+    NSInputStream *inImageStream = nil;
+    if (self.image) {
+        inImageStream = [[NSInputStream alloc] initWithData:UIImageJPEGRepresentation(self.image, 1.0)];
+        inFilename = [self.args valueForKey:@"title"];
+    } else if (self.fileURL) {
+        inImageStream = [[NSInputStream alloc] initWithURL:self.fileURL];
+        inFilename = [self.fileURL lastPathComponent];
+    }
+    
+    // Attempt to determine the MIME type from the path extension
+    NSString *pathExtension = [inFilename pathExtension];
+    NSString *mimeType = nil;
+    if (pathExtension) {
+        CFStringRef UTI = UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, (__bridge CFStringRef) pathExtension, NULL);
+        mimeType = (__bridge NSString *) UTTypeCopyPreferredTagWithClass (UTI, kUTTagClassMIMEType);
+        CFRelease(UTI);
+    }
+    if (nil == mimeType) mimeType = @"image/jpeg";
+    
 	// File name
-	NSString *inFilename = [self.args valueForKey:@"title"];
 	if (!inFilename) {
         inFilename = @" "; // Leave space so that the below still uploads a file
     } else {
@@ -96,7 +129,7 @@
 		[multipartOpeningString appendFormat:@"--%@\r\nContent-Disposition: form-data; name=\"%@\"\r\n\r\n%@\r\n", multipartBoundary, key, [args valueForKey:key]];
 	}
     [multipartOpeningString appendFormat:@"--%@\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"%@\"\r\n", multipartBoundary, inFilename];
-    [multipartOpeningString appendFormat:@"Content-Type: %@\r\n\r\n", @"image/jpeg"];
+    [multipartOpeningString appendFormat:@"Content-Type: %@\r\n\r\n", mimeType];
 	
 	// The multipart closing string
 	NSMutableString *multipartClosingString = [NSMutableString string];
@@ -109,11 +142,7 @@
 	// Output stream is the file... 
     NSOutputStream *outputStream = [NSOutputStream outputStreamToFileAtPath:tempFileName append:NO];
     [outputStream open];
-	
-	// Input stream is the image
-	NSData *imgData = UIImageJPEGRepresentation(self.image, 1.0);
-	NSInputStream *inImageStream = [[NSInputStream alloc] initWithData:imgData];
-	
+		
 	// Write the contents to the streams... don't cross the streams !
 	[FKDUStreamUtil writeMultipartStartString:multipartOpeningString imageStream:inImageStream toOutputStream:outputStream closingString:multipartClosingString];
 
